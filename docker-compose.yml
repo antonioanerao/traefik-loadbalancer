@@ -1,0 +1,43 @@
+services:
+
+  traefik:
+    image: traefik:v3.0
+    container_name: "traefik"
+    restart: always
+    command:
+      - "--log.level=DEBUG"
+      - "--log.filePath=/logs/traefik.log"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik_logs:/logs"
+    networks:
+      - proxy
+
+  webserver:
+    image: nginx 
+    restart: always
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.webserver.entrypoints=web"
+      - "traefik.http.routers.webserver.rule=Host(`webserver.docker.localhost`)"
+      - "traefik.http.services.webserver.loadbalancer.server.port=80"
+      - "traefik.http.services.webserver.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.webserver.loadbalancer.sticky.cookie.name=stickycookie"
+      - "traefik.http.services.webserver.loadbalancer.sticky.cookie.secure=true"
+    volumes:
+      - ./html:/usr/share/nginx/html
+    deploy:
+      replicas: 3
+
+networks:
+  proxy:
+    external: true
